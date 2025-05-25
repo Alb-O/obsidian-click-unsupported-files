@@ -58,7 +58,9 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
-	} private handleFileClick(evt: MouseEvent) {
+	}
+
+	private handleFileClick(evt: MouseEvent) {
 		const target = evt.target as HTMLElement;
 		// Check if alt or shift modifier keys are pressed
 		if (evt.altKey || evt.shiftKey) return;
@@ -69,64 +71,80 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 
 		const titleEl = fileEl.querySelector('.nav-file-title');
 		if (!titleEl) return;
-
+		
 		const fileName = titleEl.getAttribute('data-path');
 		if (!fileName) return;
 
 		const extension = this.getFileExtension(fileName);
 		const isNativeFile = this.NATIVE_EXTENSIONS.has(extension);
 
-		// Determine if we should handle this file type
-		const shouldHandle = this.settings.enableForAllFiles || !isNativeFile;
-
-		if (!shouldHandle) {
-			return;
+		// Scenario 1: Native file, plugin NOT overriding single click (enableForAllFiles is false)
+		if (isNativeFile && !this.settings.enableForAllFiles) {
+			// We want to ensure our plugin's selections are cleared,
+			// and then let Obsidian handle the click entirely.
+			this.clearSelections(true); // Clear our selections AND reset activeDom knowledge.
+			this.setActiveFile(fileName); // Explicitly tell the tree this is the new active item.
+			return; // Let Obsidian's default handlers run.
 		}
+
+		// If we reach here, the plugin IS involved:
+		// - It's a non-native file (plugin handles single and double click).
+		// - OR It's a native file but enableForAllFiles is true (plugin handles double-click, Obsidian handles single).
+
+		// First, clear any visual selection classes from items previously selected by the plugin.
+		// This call preserves activeDom, which is important for the (isNativeFile && enableForAllFiles)
+		// single-click case, before we explicitly set it later.
+		this.deselectAllFiles(); // Calls clearSelections(false)
 
 		const fileKey = fileName;
 
-		// Check if this is a double-click
 		if (this.clickTimeouts.has(fileKey)) {
-			// This is a double-click
+			// DOUBLE-CLICK LOGIC
 			clearTimeout(this.clickTimeouts.get(fileKey)!);
 			this.clickTimeouts.delete(fileKey);
 
-			// For native files with enableForAllFiles=true, prevent default and open externally
 			if (isNativeFile && this.settings.enableForAllFiles) {
+				// Native file, enableForAllFiles=true: we are overriding double click.
+				evt.preventDefault();
+				evt.stopPropagation();
+			} else if (!isNativeFile) {
+				// Non-native file: we are overriding double click.
+				// The first click (if it happened) should have already done this for non-native.
 				evt.preventDefault();
 				evt.stopPropagation();
 			}
+			this.openFileInDefaultApp(fileName);
 
-			this.openFileInDefaultApp(fileName);		} else {
-			// This is a first click
-			// Always deselect all files first to ensure clean state
-			this.deselectAllFiles();
-			
+		} else {
+			// SINGLE-CLICK LOGIC
 			if (isNativeFile && this.settings.enableForAllFiles) {
-				// For native files with enableForAllFiles=true, allow normal Obsidian behavior on first click
-				// Just set up the timeout to detect potential double-click
+				// Native file, enableForAllFiles=true.
+				// Obsidian handles the actual single click (selection, opening if folder, etc.).
+				// We do not preventDefault or stopPropagation here.
+				// We set up a timeout to detect a potential double-click.
+				this.setActiveFile(fileName); // Make sure this file is the active one for subsequent shift-clicks.
+				
 				const timeout = setTimeout(() => {
 					this.clickTimeouts.delete(fileKey);
+					// If timeout expires, it was a single click. Obsidian has handled it.
 				}, this.settings.doubleClickDelay);
 				this.clickTimeouts.set(fileKey, timeout);
 			} else {
-				// For non-native files, prevent default and handle selection ourselves
+				// Non-native file.
 				evt.preventDefault();
 				evt.stopPropagation();
-
-				this.selectFile(fileEl as HTMLElement);
-
-				// Set timeout to detect if this becomes a double-click
+				this.selectFile(fileEl as HTMLElement); // This method selects the file AND sets it as active.
+				
 				const timeout = setTimeout(() => {
 					this.clickTimeouts.delete(fileKey);
-					// File is already selected, nothing more to do
+					// If timeout expires, it was a single click. File is already selected and active.
 				}, this.settings.doubleClickDelay);
 				this.clickTimeouts.set(fileKey, timeout);
 			}
 		}
 	}
 
-	private deselectAllFiles() {
+	private clearSelections(clearActiveDom: boolean = true) {
 		if (!this.fileExplorerView?.tree) {
 			// Fallback to DOM manipulation
 			const explorer = document.querySelector('.nav-files-container');
@@ -145,6 +163,10 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 
 		// Use Obsidian's native selection system
 		const tree = this.fileExplorerView.tree;
+		
+		// Preserve the current activeDom if we don't want to clear it
+		const preservedActiveDom = clearActiveDom ? null : tree.activeDom;
+		const preservedFocusedItem = clearActiveDom ? null : tree.focusedItem;
 
 		// Clear all selected items from the tree's selectedDoms Set
 		tree.selectedDoms.forEach((dom: any) => {
@@ -156,12 +178,34 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 			}
 		});
 		tree.selectedDoms.clear();
+
+		// Restore preserved items if needed
+		if (!clearActiveDom && preservedActiveDom) {
+			tree.activeDom = preservedActiveDom;
+			tree.focusedItem = preservedFocusedItem;
+		}
+	}
+
+	private deselectAllFiles() {
+		this.clearSelections(false); // By default, preserve activeDom
 	}
 
 	private getFileExtension(fileName: string): string {
 		const lastDot = fileName.lastIndexOf('.');
 		if (lastDot === -1) return '';
 		return fileName.substring(lastDot + 1).toLowerCase();
+	}
+
+	private setActiveFile(fileName: string) {
+		if (this.fileExplorerView?.fileItems && this.fileExplorerView?.tree) {
+			const tree = this.fileExplorerView.tree;
+			const fileItem = this.fileExplorerView.fileItems[fileName];
+			if (fileItem) {
+				// Set as active item so shift-click selections work properly
+				tree.activeDom = fileItem;
+				tree.focusedItem = fileItem;
+			}
+		}
 	}
 
 	private selectFile(fileEl: HTMLElement) {
