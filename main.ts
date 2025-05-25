@@ -41,6 +41,8 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 
 		// Register click event listener on the file explorer with capture phase
 		this.registerDomEvent(document, 'click', this.handleFileClick.bind(this), true);
+		// Register mousedown listener to clear focus styling early
+		this.registerDomEvent(document, 'mousedown', this.handleFileMouseDown.bind(this), true);
 
 		// Add settings tab
 		this.addSettingTab(new DoubleClickNonNativeSettingTab(this.app, this));
@@ -144,45 +146,49 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 		}
 	}
 
+	// Handle mousedown to remove lingering has-focus classes immediately
+	private handleFileMouseDown(evt: MouseEvent) {
+		const fileEl = (evt.target as HTMLElement).closest('.nav-file');
+		if (!fileEl) return;
+		const explorer = document.querySelector('.nav-files-container');
+		if (explorer) {
+			explorer.querySelectorAll('.nav-file-title.has-focus').forEach(el => el.classList.remove('has-focus'));
+		}
+	}
+
 	private clearSelections(clearActiveDom: boolean = true) {
+		// If Obsidian's native tree is not ready, skip manual styling
 		if (!this.fileExplorerView?.tree) {
-			// Fallback to DOM manipulation
-			const explorer = document.querySelector('.nav-files-container');
-			if (explorer) {
-				const selectedFiles = explorer.querySelectorAll('.nav-file.is-selected');
-				selectedFiles.forEach(el => {
-					el.classList.remove('is-selected');
-					const titleEl = el.querySelector('.nav-file-title');
-					if (titleEl) {
-						titleEl.classList.remove('is-selected');
-					}
-				});
-			}
 			return;
 		}
 
 		// Use Obsidian's native selection system
 		const tree = this.fileExplorerView.tree;
-		
-		// Preserve the current activeDom if we don't want to clear it
 		const preservedActiveDom = clearActiveDom ? null : tree.activeDom;
 		const preservedFocusedItem = clearActiveDom ? null : tree.focusedItem;
-
-		// Clear all selected items from the tree's selectedDoms Set
 		tree.selectedDoms.forEach((dom: any) => {
-			if (dom.el) {
-				dom.el.classList.remove('is-selected');
-			}
+			if (dom.el) dom.el.classList.remove('is-selected');
 			if (dom.selfEl) {
 				dom.selfEl.classList.remove('is-selected');
+				if (clearActiveDom) dom.selfEl.classList.remove('has-focus');
 			}
 		});
 		tree.selectedDoms.clear();
 
-		// Restore preserved items if needed
+		if (clearActiveDom) {
+			const explorer = document.querySelector('.nav-files-container');
+			if (explorer) {
+				const focusedTitles = explorer.querySelectorAll('.tree-item-self.nav-file-title.has-focus, .nav-file-title.has-focus');
+				focusedTitles.forEach(el => el.classList.remove('has-focus'));
+			}
+		}
+
 		if (!clearActiveDom && preservedActiveDom) {
 			tree.activeDom = preservedActiveDom;
 			tree.focusedItem = preservedFocusedItem;
+		} else if (clearActiveDom) {
+			if (tree.activeDom) tree.activeDom = null;
+			if (tree.focusedItem) tree.focusedItem = null;
 		}
 	}
 
@@ -213,14 +219,12 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 		const explorer = document.querySelector('.nav-files-container');
 		if (explorer) {
 			const focusedTitles = explorer.querySelectorAll('.tree-item-self.nav-file-title.has-focus');
-			focusedTitles.forEach(el => {
-				el.classList.remove('has-focus');
-			});
+			focusedTitles.forEach(el => el.classList.remove('has-focus'));
 		}
 
 		const titleEl = fileEl.querySelector('.nav-file-title');
 		if (!titleEl) return;
-
+		
 		const fileName = titleEl.getAttribute('data-path');
 		if (!fileName) return;
 
@@ -234,7 +238,7 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 			}
 		}
 
-		// Add 'has-focus' to the selected file's title element (for DOM fallback)
+		// DOM visual selection for non-native files
 		titleEl.classList.add('has-focus');
 	}
 
