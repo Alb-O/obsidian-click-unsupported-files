@@ -1,7 +1,7 @@
 {
 	"name": "double-click-non-native",
 	"version": "0.1.0",
-	"description": "Changes click behavior for non-native files to work similar to Windows File Explorer: single-click selects, double-click opens in system app.",
+	"description": "Changes click behavior for non-native files to work similar to Windows File Explorer: single-click selects, double-click opens in default app.",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
@@ -10,7 +10,7 @@
 	},
 	"keywords": [],
 	"author": "Albert O'Shea",
-	"license": "MIT",
+	"license": "GPL-3.0",
 	"devDependencies": {
 		"@types/node": "^16.11.6",
 		"@typescript-eslint/eslint-plugin": "5.29.0",
