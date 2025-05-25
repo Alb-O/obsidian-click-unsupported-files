@@ -5,6 +5,11 @@ interface DoubleClickNonNativeSettings {
 	enableForAllFiles: boolean;
 }
 
+// Extend the App interface to include the undocumented method
+interface ExtendedApp extends App {
+	openWithDefaultApp(filePath: string): void;
+}
+
 const DEFAULT_SETTINGS: DoubleClickNonNativeSettings = {
 	doubleClickDelay: 300,
 	enableForAllFiles: false
@@ -175,8 +180,7 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 				return;
 			}
 		}
-	}
-	private async openFileInDefaultApp(fileName: string) {
+	}	private async openFileInDefaultApp(fileName: string) {
 		const file = this.app.vault.getAbstractFileByPath(fileName);
 		if (file instanceof TFile) {
 			const extension = this.getFileExtension(fileName);
@@ -188,7 +192,7 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 				// Open file in default external application
 				try {
 					// Use Obsidian's internal method to open with default app
-					(this.app as any).openWithDefaultApp(file.path);
+					(this.app as ExtendedApp).openWithDefaultApp(file.path);
 				} catch (error) {
 					console.error('Failed to open file in default app:', error);
 					// Fallback to opening in Obsidian if possible
