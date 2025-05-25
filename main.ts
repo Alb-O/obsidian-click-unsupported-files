@@ -1,85 +1,48 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { Plugin, TFile, PluginSettingTab, App, Setting } from 'obsidian';
 
-// Remember to rename these classes and interfaces!
-
-interface MyPluginSettings {
-	mySetting: string;
+interface DoubleClickNonNativeSettings {
+	doubleClickDelay: number;
 }
 
-const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default'
-}
+const DEFAULT_SETTINGS: DoubleClickNonNativeSettings = {
+	doubleClickDelay: 300
+};
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+export default class DoubleClickNonNativePlugin extends Plugin {
+	settings: DoubleClickNonNativeSettings;
+	private clickTimeouts: Map<string, NodeJS.Timeout> = new Map();
+	private fileExplorerView: any = null;
+
+	// Obsidian native file extensions
+	private readonly NATIVE_EXTENSIONS = new Set([
+		'md',
+		'base',
+		'canvas',
+		'avif', 'bmp', 'gif', 'jpeg', 'jpg', 'png', 'svg', 'webp',
+		'flac', 'm4a', 'mp3', 'ogg', 'wav', '3gp',
+		'mkv', 'mov', 'mp4', 'ogv', 'webm',
+		'pdf'
+	]);
 
 	async onload() {
 		await this.loadSettings();
 
-		// This creates an icon in the left ribbon.
-		const ribbonIconEl = this.addRibbonIcon('dice', 'Sample Plugin', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
+		// Get reference to file explorer view
+		this.app.workspace.onLayoutReady(() => {
+			this.fileExplorerView = this.app.workspace.getLeavesOfType('file-explorer')[0]?.view;
 		});
-		// Perform additional things with the ribbon
-		ribbonIconEl.addClass('my-plugin-ribbon-class');
+		
+		// Register click event listener on the file explorer with capture phase
+		this.registerDomEvent(document, 'click', this.handleFileClick.bind(this), true);
 
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status Bar Text');
-
-		// This adds a simple command that can be triggered anywhere
-		this.addCommand({
-			id: 'open-sample-modal-simple',
-			name: 'Open sample modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
-			}
-		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'sample-editor-command',
-			name: 'Sample editor command',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				console.log(editor.getSelection());
-				editor.replaceSelection('Sample Editor Command');
-			}
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-sample-modal-complex',
-			name: 'Open sample modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
-
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
-				}
-			}
-		});
-
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
-
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			console.log('click', evt);
-		});
-
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
+		// Add settings tab
+		this.addSettingTab(new DoubleClickNonNativeSettingTab(this.app, this));
 	}
 
 	onunload() {
-
+		// Clear any pending timeouts
+		this.clickTimeouts.forEach(timeout => clearTimeout(timeout));
+		this.clickTimeouts.clear();
 	}
 
 	async loadSettings() {
@@ -89,46 +52,143 @@ export default class MyPlugin extends Plugin {
 	async saveSettings() {
 		await this.saveData(this.settings);
 	}
+
+	private handleFileClick(evt: MouseEvent) {
+		const target = evt.target as HTMLElement;
+		// Check if alt or shift modifier keys are pressed
+		if (evt.altKey || evt.shiftKey) return;
+
+		// Check if click is on a file in the explorer
+		const fileEl = target.closest('.nav-file');
+		if (!fileEl) return;
+
+		const titleEl = fileEl.querySelector('.nav-file-title');
+		if (!titleEl) return;
+
+		const fileName = titleEl.getAttribute('data-path');
+		if (!fileName) return;
+
+		const extension = this.getFileExtension(fileName);
+
+		// Only handle non-native file types
+		if (this.NATIVE_EXTENSIONS.has(extension)) {
+			return;
+		}
+
+		// Prevent the default click behavior for non-native files
+		evt.preventDefault();
+		evt.stopPropagation();
+
+		// Immediately deselect all other files when we intercept any click
+		this.deselectAllFiles();
+
+		const fileKey = fileName;
+		// Check if this is a double-click
+		if (this.clickTimeouts.has(fileKey)) {
+			clearTimeout(this.clickTimeouts.get(fileKey)!);
+			this.clickTimeouts.delete(fileKey);
+			this.openFileInDefaultApp(fileName);
+		} else {
+			this.selectFile(fileEl as HTMLElement);
+			// Set timeout to detect if this becomes a double-click
+			const timeout = setTimeout(() => {
+				this.clickTimeouts.delete(fileKey);
+				// File is already selected, nothing more to do
+			}, this.settings.doubleClickDelay);
+			this.clickTimeouts.set(fileKey, timeout);
+		}
+	}
+
+	private deselectAllFiles() {
+		if (!this.fileExplorerView?.tree) {
+			// Fallback to DOM manipulation
+			const explorer = document.querySelector('.nav-files-container');
+			if (explorer) {
+				const selectedFiles = explorer.querySelectorAll('.nav-file.is-selected');
+				selectedFiles.forEach(el => {
+					el.classList.remove('is-selected');
+					const titleEl = el.querySelector('.nav-file-title');
+					if (titleEl) {
+						titleEl.classList.remove('is-selected');
+					}
+				});
+			}
+			return;
+		}
+
+		// Use Obsidian's native selection system
+		const tree = this.fileExplorerView.tree;
+		
+		// Clear all selected items from the tree's selectedDoms Set
+		tree.selectedDoms.forEach((dom: any) => {
+			if (dom.el) {
+				dom.el.classList.remove('is-selected');
+			}
+			if (dom.selfEl) {
+				dom.selfEl.classList.remove('is-selected');
+			}
+		});
+		tree.selectedDoms.clear();
+	}
+
+	private getFileExtension(fileName: string): string {
+		const lastDot = fileName.lastIndexOf('.');
+		if (lastDot === -1) return '';
+		return fileName.substring(lastDot + 1).toLowerCase();
+	}
+
+	private selectFile(fileEl: HTMLElement) {
+		const titleEl = fileEl.querySelector('.nav-file-title');
+		if (!titleEl) return;
+		
+		const fileName = titleEl.getAttribute('data-path');
+		if (!fileName) return;
+
+		if (this.fileExplorerView?.fileItems && this.fileExplorerView?.tree) {
+			const fileItem = this.fileExplorerView.fileItems[fileName];
+			if (fileItem) {
+				this.fileExplorerView.tree.selectedDoms.add(fileItem);
+				fileItem.el?.classList.add('is-selected');
+				fileItem.selfEl?.classList.add('is-selected');
+				return;
+			}
+		}
+	}
+	
+	private async openFileInDefaultApp(fileName: string) {
+		const file = this.app.vault.getAbstractFileByPath(fileName);
+		if (file instanceof TFile) {
+			const leaf = this.app.workspace.getLeaf(false);
+			await leaf.openFile(file);
+		}
+	}
 }
 
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
+class DoubleClickNonNativeSettingTab extends PluginSettingTab {
+	plugin: DoubleClickNonNativePlugin;
 
-	onOpen() {
-		const {contentEl} = this;
-		contentEl.setText('Woah!');
-	}
-
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
-	}
-}
-
-class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
-
-	constructor(app: App, plugin: MyPlugin) {
+	constructor(app: App, plugin: DoubleClickNonNativePlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
 
 	display(): void {
-		const {containerEl} = this;
+		const { containerEl } = this;
 
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName('Setting #1')
-			.setDesc('It\'s a secret')
+			.setName('Double-click timeout')
+			.setDesc('Time in milliseconds to wait for a second click to register as a double-click.')
 			.addText(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
+				.setPlaceholder('300')
+				.setValue(this.plugin.settings.doubleClickDelay.toString())
 				.onChange(async (value) => {
-					this.plugin.settings.mySetting = value;
-					await this.plugin.saveSettings();
+					const numValue = parseInt(value);
+					if (!isNaN(numValue) && numValue > 0) {
+						this.plugin.settings.doubleClickDelay = numValue;
+						await this.plugin.saveSettings();
+					}
 				}));
 	}
 }
