@@ -97,9 +97,11 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 				evt.stopPropagation();
 			}
 
-			this.openFileInDefaultApp(fileName);
-		} else {
+			this.openFileInDefaultApp(fileName);		} else {
 			// This is a first click
+			// Always deselect all files first to ensure clean state
+			this.deselectAllFiles();
+			
 			if (isNativeFile && this.settings.enableForAllFiles) {
 				// For native files with enableForAllFiles=true, allow normal Obsidian behavior on first click
 				// Just set up the timeout to detect potential double-click
@@ -112,8 +114,6 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 				evt.preventDefault();
 				evt.stopPropagation();
 
-				// Immediately deselect all other files when we intercept any click
-				this.deselectAllFiles();
 				this.selectFile(fileEl as HTMLElement);
 
 				// Set timeout to detect if this becomes a double-click
