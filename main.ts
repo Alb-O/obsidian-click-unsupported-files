@@ -228,20 +228,6 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 			const tree = this.fileExplorerView.tree;
 			const fileItem = this.fileExplorerView.fileItems[fileName];
 			if (fileItem) {
-				// Deselect all previously selected items in the tree
-				tree.selectedDoms.forEach((dom: any) => {
-					dom.el?.classList.remove('is-selected');
-					dom.selfEl?.classList.remove('is-selected');
-					dom.selfEl?.classList.remove('has-focus');
-				});
-				tree.selectedDoms.clear();
-
-				// Select and focus the new fileItem
-				tree.selectedDoms.add(fileItem);
-				fileItem.el?.classList.add('is-selected');
-				fileItem.selfEl?.classList.add('is-selected');
-				fileItem.selfEl?.classList.add('has-focus');
-
 				// Set as active item
 				tree.activeDom = fileItem;
 				tree.focusedItem = fileItem;
