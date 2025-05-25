@@ -1,6 +1,6 @@
 {
 	"name": "double-click-non-native",
-	"version": "0.0.1",
+	"version": "0.1.0",
 	"description": "Changes click behavior for non-native files to work similar to Windows File Explorer: single-click selects, double-click opens in system app.",
 	"main": "main.js",
 	"scripts": {
