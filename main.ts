@@ -2,10 +2,12 @@ import { Plugin, TFile, PluginSettingTab, App, Setting } from 'obsidian';
 
 interface DoubleClickNonNativeSettings {
 	doubleClickDelay: number;
+	enableForAllFiles: boolean;
 }
 
 const DEFAULT_SETTINGS: DoubleClickNonNativeSettings = {
-	doubleClickDelay: 300
+	doubleClickDelay: 300,
+	enableForAllFiles: false
 };
 
 export default class DoubleClickNonNativePlugin extends Plugin {
@@ -51,9 +53,7 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
-	}
-
-	private handleFileClick(evt: MouseEvent) {
+	}	private handleFileClick(evt: MouseEvent) {
 		const target = evt.target as HTMLElement;
 		// Check if alt or shift modifier keys are pressed
 		if (evt.altKey || evt.shiftKey) return;
@@ -69,33 +69,55 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 		if (!fileName) return;
 
 		const extension = this.getFileExtension(fileName);
+		const isNativeFile = this.NATIVE_EXTENSIONS.has(extension);
 
-		// Only handle non-native file types
-		if (this.NATIVE_EXTENSIONS.has(extension)) {
+		// Determine if we should handle this file type
+		const shouldHandle = this.settings.enableForAllFiles || !isNativeFile;
+		
+		if (!shouldHandle) {
 			return;
 		}
 
-		// Prevent the default click behavior for non-native files
-		evt.preventDefault();
-		evt.stopPropagation();
-
-		// Immediately deselect all other files when we intercept any click
-		this.deselectAllFiles();
-
 		const fileKey = fileName;
+
 		// Check if this is a double-click
 		if (this.clickTimeouts.has(fileKey)) {
+			// This is a double-click
 			clearTimeout(this.clickTimeouts.get(fileKey)!);
 			this.clickTimeouts.delete(fileKey);
+			
+			// For native files with enableForAllFiles=true, prevent default and open externally
+			if (isNativeFile && this.settings.enableForAllFiles) {
+				evt.preventDefault();
+				evt.stopPropagation();
+			}
+			
 			this.openFileInDefaultApp(fileName);
 		} else {
-			this.selectFile(fileEl as HTMLElement);
-			// Set timeout to detect if this becomes a double-click
-			const timeout = setTimeout(() => {
-				this.clickTimeouts.delete(fileKey);
-				// File is already selected, nothing more to do
-			}, this.settings.doubleClickDelay);
-			this.clickTimeouts.set(fileKey, timeout);
+			// This is a first click
+			if (isNativeFile && this.settings.enableForAllFiles) {
+				// For native files with enableForAllFiles=true, allow normal Obsidian behavior on first click
+				// Just set up the timeout to detect potential double-click
+				const timeout = setTimeout(() => {
+					this.clickTimeouts.delete(fileKey);
+				}, this.settings.doubleClickDelay);
+				this.clickTimeouts.set(fileKey, timeout);
+			} else {
+				// For non-native files, prevent default and handle selection ourselves
+				evt.preventDefault();
+				evt.stopPropagation();
+				
+				// Immediately deselect all other files when we intercept any click
+				this.deselectAllFiles();
+				this.selectFile(fileEl as HTMLElement);
+				
+				// Set timeout to detect if this becomes a double-click
+				const timeout = setTimeout(() => {
+					this.clickTimeouts.delete(fileKey);
+					// File is already selected, nothing more to do
+				}, this.settings.doubleClickDelay);
+				this.clickTimeouts.set(fileKey, timeout);
+			}
 		}
 	}
 
@@ -154,12 +176,32 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 			}
 		}
 	}
-	
 	private async openFileInDefaultApp(fileName: string) {
 		const file = this.app.vault.getAbstractFileByPath(fileName);
 		if (file instanceof TFile) {
-			const leaf = this.app.workspace.getLeaf(false);
-			await leaf.openFile(file);
+			const extension = this.getFileExtension(fileName);
+			
+			// Check if we should open externally or in Obsidian
+			const shouldOpenExternally = this.settings.enableForAllFiles || !this.NATIVE_EXTENSIONS.has(extension);
+			
+			if (shouldOpenExternally) {
+				// Open file in default external application
+				try {
+					// Use Obsidian's internal method to open with default app
+					(this.app as any).openWithDefaultApp(file.path);
+				} catch (error) {
+					console.error('Failed to open file in default app:', error);
+					// Fallback to opening in Obsidian if possible
+					if (this.NATIVE_EXTENSIONS.has(extension)) {
+						const leaf = this.app.workspace.getLeaf(false);
+						await leaf.openFile(file);
+					}
+				}
+			} else {
+				// Open native files in Obsidian (when enableForAllFiles is false)
+				const leaf = this.app.workspace.getLeaf(false);
+				await leaf.openFile(file);
+			}
 		}
 	}
 }
@@ -171,7 +213,6 @@ class DoubleClickNonNativeSettingTab extends PluginSettingTab {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
-
 	display(): void {
 		const { containerEl } = this;
 
@@ -189,6 +230,16 @@ class DoubleClickNonNativeSettingTab extends PluginSettingTab {
 						this.plugin.settings.doubleClickDelay = numValue;
 						await this.plugin.saveSettings();
 					}
+				}));
+
+		new Setting(containerEl)
+			.setName('Enable double-click for all files')
+			.setDesc('When enabled, double-clicking any file (including native Obsidian files like .md) will open it in the default application.')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.enableForAllFiles)
+				.onChange(async (value) => {
+					this.plugin.settings.enableForAllFiles = value;
+					await this.plugin.saveSettings();
 				}));
 	}
 }
