@@ -215,12 +215,6 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 	}
 
 	private selectFile(fileEl: HTMLElement) {
-		// Remove 'has-focus' from any file title that has it
-		const explorer = document.querySelector('.nav-files-container');
-		if (explorer) {
-			const focusedTitles = explorer.querySelectorAll('.tree-item-self.nav-file-title.has-focus');
-			focusedTitles.forEach(el => el.classList.remove('has-focus'));
-		}
 
 		const titleEl = fileEl.querySelector('.nav-file-title');
 		if (!titleEl) return;
@@ -232,9 +226,7 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 			const tree = this.fileExplorerView.tree;
 			const fileItem = this.fileExplorerView.fileItems[fileName];
 			if (fileItem) {
-				// Set as active item
 				tree.activeDom = fileItem;
-				tree.focusedItem = fileItem;
 			}
 		}
 
