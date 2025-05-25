@@ -38,7 +38,7 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 		this.app.workspace.onLayoutReady(() => {
 			this.fileExplorerView = this.app.workspace.getLeavesOfType('file-explorer')[0]?.view;
 		});
-		
+
 		// Register click event listener on the file explorer with capture phase
 		this.registerDomEvent(document, 'click', this.handleFileClick.bind(this), true);
 
@@ -58,7 +58,7 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
-	}	private handleFileClick(evt: MouseEvent) {
+	} private handleFileClick(evt: MouseEvent) {
 		const target = evt.target as HTMLElement;
 		// Check if alt or shift modifier keys are pressed
 		if (evt.altKey || evt.shiftKey) return;
@@ -78,7 +78,7 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 
 		// Determine if we should handle this file type
 		const shouldHandle = this.settings.enableForAllFiles || !isNativeFile;
-		
+
 		if (!shouldHandle) {
 			return;
 		}
@@ -90,13 +90,13 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 			// This is a double-click
 			clearTimeout(this.clickTimeouts.get(fileKey)!);
 			this.clickTimeouts.delete(fileKey);
-			
+
 			// For native files with enableForAllFiles=true, prevent default and open externally
 			if (isNativeFile && this.settings.enableForAllFiles) {
 				evt.preventDefault();
 				evt.stopPropagation();
 			}
-			
+
 			this.openFileInDefaultApp(fileName);
 		} else {
 			// This is a first click
@@ -111,11 +111,11 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 				// For non-native files, prevent default and handle selection ourselves
 				evt.preventDefault();
 				evt.stopPropagation();
-				
+
 				// Immediately deselect all other files when we intercept any click
 				this.deselectAllFiles();
 				this.selectFile(fileEl as HTMLElement);
-				
+
 				// Set timeout to detect if this becomes a double-click
 				const timeout = setTimeout(() => {
 					this.clickTimeouts.delete(fileKey);
@@ -145,7 +145,7 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 
 		// Use Obsidian's native selection system
 		const tree = this.fileExplorerView.tree;
-		
+
 		// Clear all selected items from the tree's selectedDoms Set
 		tree.selectedDoms.forEach((dom: any) => {
 			if (dom.el) {
@@ -176,13 +176,14 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 
 		const titleEl = fileEl.querySelector('.nav-file-title');
 		if (!titleEl) return;
-		
+
 		const fileName = titleEl.getAttribute('data-path');
 		if (!fileName) return;
 
 		if (this.fileExplorerView?.fileItems && this.fileExplorerView?.tree) {
 			const tree = this.fileExplorerView.tree;
-			const fileItem = this.fileExplorerView.fileItems[fileName];			if (fileItem) {
+			const fileItem = this.fileExplorerView.fileItems[fileName];
+			if (fileItem) {
 				// Deselect all previously selected items in the tree
 				tree.selectedDoms.forEach((dom: any) => {
 					dom.el?.classList.remove('is-selected');
@@ -196,7 +197,7 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 				fileItem.el?.classList.add('is-selected');
 				fileItem.selfEl?.classList.add('is-selected');
 				fileItem.selfEl?.classList.add('has-focus');
-				
+
 				// Set as active item
 				tree.activeDom = fileItem;
 				tree.focusedItem = fileItem;
@@ -211,10 +212,10 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 		const file = this.app.vault.getAbstractFileByPath(fileName);
 		if (file instanceof TFile) {
 			const extension = this.getFileExtension(fileName);
-			
+
 			// Check if we should open externally or in Obsidian
 			const shouldOpenExternally = this.settings.enableForAllFiles || !this.NATIVE_EXTENSIONS.has(extension);
-			
+
 			if (shouldOpenExternally) {
 				// Open file in default external application
 				try {
