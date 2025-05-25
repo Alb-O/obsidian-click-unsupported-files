@@ -165,6 +165,15 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 	}
 
 	private selectFile(fileEl: HTMLElement) {
+		// Remove 'has-focus' from any file title that has it
+		const explorer = document.querySelector('.nav-files-container');
+		if (explorer) {
+			const focusedTitles = explorer.querySelectorAll('.tree-item-self.nav-file-title.has-focus');
+			focusedTitles.forEach(el => {
+				el.classList.remove('has-focus');
+			});
+		}
+
 		const titleEl = fileEl.querySelector('.nav-file-title');
 		if (!titleEl) return;
 		
@@ -172,15 +181,33 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 		if (!fileName) return;
 
 		if (this.fileExplorerView?.fileItems && this.fileExplorerView?.tree) {
-			const fileItem = this.fileExplorerView.fileItems[fileName];
-			if (fileItem) {
-				this.fileExplorerView.tree.selectedDoms.add(fileItem);
+			const tree = this.fileExplorerView.tree;
+			const fileItem = this.fileExplorerView.fileItems[fileName];			if (fileItem) {
+				// Deselect all previously selected items in the tree
+				tree.selectedDoms.forEach((dom: any) => {
+					dom.el?.classList.remove('is-selected');
+					dom.selfEl?.classList.remove('is-selected');
+					dom.selfEl?.classList.remove('has-focus');
+				});
+				tree.selectedDoms.clear();
+
+				// Select and focus the new fileItem
+				tree.selectedDoms.add(fileItem);
 				fileItem.el?.classList.add('is-selected');
 				fileItem.selfEl?.classList.add('is-selected');
-				return;
+				fileItem.selfEl?.classList.add('has-focus');
+				
+				// Set as active item
+				tree.activeDom = fileItem;
+				tree.focusedItem = fileItem;
 			}
 		}
-	}	private async openFileInDefaultApp(fileName: string) {
+
+		// Add 'has-focus' to the selected file's title element (for DOM fallback)
+		titleEl.classList.add('has-focus');
+	}
+
+	private async openFileInDefaultApp(fileName: string) {
 		const file = this.app.vault.getAbstractFileByPath(fileName);
 		if (file instanceof TFile) {
 			const extension = this.getFileExtension(fileName);
