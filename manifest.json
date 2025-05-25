@@ -1,7 +1,7 @@
 {
 	"id": "double-click-non-native",
 	"name": "Double Click Non-Native Files",
-	"version": "0.2.2",
+	"version": "0.3.0",
 	"minAppVersion": "1.8.10",
 	"description": "Changes click behavior for non-native files to work similar to Windows File Explorer: single-click selects, double-click opens in default app.",
 	"author": "Albert O'Shea",
