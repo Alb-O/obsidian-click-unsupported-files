@@ -2,7 +2,7 @@
 
 A simple Obsidian plugin that changes the behavior of clicking file formats that don't natively open in Obsidian's File Explorer.
 
-- **Single-click**: Selects the file (like Alt+click).
+- **Single-click**: Sets the focus to the file (relevant when using shift to column select).
 - **Double-click**: Opens the file in the default application.
 
 This prevents accidental launches of programs, mimicking the behavior of Windows File Explorer and other file managers.
