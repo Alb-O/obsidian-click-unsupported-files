@@ -1,8 +1,8 @@
-# Double Click Non-Native Files
+# Click Unsupported Files
 
 A simple Obsidian plugin that changes the behavior of clicking file formats that don't natively open in Obsidian's File Explorer.
 
-- **Single-click**: Sets the focus to the file (relevant for F2 rename shortcut and when using shift to column select).
+- **Single-click**: Sets the active view to the file, but in a 'dummy' view that simply shows some file info and provides a button to open in default app. This behavior can be turned off in settings in favor of focusing the item in file explorer but not opening a new view.
 - **Double-click**: Opens the file in the default application.
 
-This prevents accidental launches of programs, mimicking the behavior of Windows File Explorer and other file managers.
+The purpose of this plugin is to prevent accidental launches of programs, and allow other plugins that act on the actively viewd file to work for unsuported files.
