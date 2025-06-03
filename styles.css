@@ -1,0 +1,35 @@
+.view-content:has(.dummy-file-container) {
+    padding: var(--file-margins);
+}
+
+.dummy-file-container {
+	padding: var(--embed-padding);
+	max-width: var(--max-width);
+    width: var(--line-width);
+	margin: 0 auto;
+}
+
+.dummy-file-info {
+	background: var(--background-secondary);
+	border-radius: var(--radius-s);
+	padding: var(--size-4-2);
+	margin-bottom: var(--size-4-2);
+	text-align: left;
+    font-size: var(--font-ui-small)
+}
+
+.dummy-file-info p {
+	margin: var(--content-margin);
+}
+
+.dummy-file-container .callout {
+	margin-bottom: var(--size-4-2);
+}
+
+.dummy-file-actions {
+	margin-top: var(--size-4-6);
+	display: flex;
+	gap: var(--size-4-2);
+	justify-content: center;
+	flex-wrap: wrap;
+}

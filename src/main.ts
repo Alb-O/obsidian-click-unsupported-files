@@ -1,19 +1,8 @@
-import { Plugin, TFile, PluginSettingTab, App, Setting } from 'obsidian';
-
-interface DoubleClickNonNativeSettings {
-	doubleClickDelay: number;
-	enableForAllFiles: boolean;
-}
-
-// Extend the App interface to include the undocumented method
-interface ExtendedApp extends App {
-	openWithDefaultApp(filePath: string): void;
-}
-
-const DEFAULT_SETTINGS: DoubleClickNonNativeSettings = {
-	doubleClickDelay: 300,
-	enableForAllFiles: false
-};
+import { Plugin, TFile } from 'obsidian';
+import { DoubleClickNonNativeSettings, DEFAULT_SETTINGS, VIEW_TYPE_DUMMY } from './settings';
+import { ExtendedApp } from './types';
+import { DummyFileView } from './dummy-file-view';
+import { DoubleClickNonNativeSettingTab } from './settings-tab';
 
 export default class DoubleClickNonNativePlugin extends Plugin {
 	settings: DoubleClickNonNativeSettings;
@@ -22,6 +11,9 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
+
+		// Register dummy view for non-native files
+		this.registerView(VIEW_TYPE_DUMMY, (leaf) => new DummyFileView(leaf));
 
 		// Get reference to file explorer view
 		this.app.workspace.onLayoutReady(() => {
@@ -65,7 +57,6 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 		
 		const fileName = titleEl.getAttribute('data-path');
 		if (!fileName) return;
-
 
 		// Use Obsidian's built-in class to check if file is non-native (unsupported)
 		const isUnsupported = titleEl.classList.contains('is-unsupported');
@@ -118,10 +109,17 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 				// Non-native file (unsupported).
 				evt.preventDefault();
 				evt.stopPropagation();
-			   this.selectFile(fileEl as HTMLElement); // This method selects the file AND sets it as active.
+				
+				// If dummy view is enabled, open the file in a dummy view instead of just selecting
+				if (this.settings.enableDummyView) {
+					this.openFileInDummyView(fileName);
+				} else {
+					this.selectFile(fileEl as HTMLElement); // This method selects the file AND sets it as active.
+				}
+				
 				const timeout = setTimeout(() => {
 					this.clickTimeouts.delete(fileKey);
-					// If timeout expires, it was a single click. File is already selected and active.
+					// If timeout expires, it was a single click. File is already handled above.
 				}, this.settings.doubleClickDelay);
 				this.clickTimeouts.set(fileKey, timeout);
 			}
@@ -148,6 +146,7 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 		const tree = this.fileExplorerView.tree;
 		const preservedActiveDom = clearActiveDom ? null : tree.activeDom;
 		const preservedFocusedItem = clearActiveDom ? null : tree.focusedItem;
+
 		tree.selectedDoms.forEach((dom: any) => {
 			if (dom.el) dom.el.classList.remove('is-selected');
 			if (dom.selfEl) {
@@ -211,6 +210,28 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 	   titleEl.classList.add('has-focus');
    }
 
+	private async openFileInDummyView(fileName: string) {
+		const file = this.app.vault.getAbstractFileByPath(fileName);
+		if (file instanceof TFile) {
+			try {
+				// Get or create a leaf for the dummy view
+				const leaf = this.app.workspace.getLeaf(false);
+				// Open the file using our custom dummy view
+				await leaf.setViewState({
+					type: VIEW_TYPE_DUMMY,
+					state: { file: fileName }
+				});
+			} catch (error) {
+				console.error('Failed to open file in dummy view:', error);
+				// Fallback to just selecting the file
+				const fileEl = document.querySelector(`[data-path="${fileName}"]`)?.closest('.nav-file') as HTMLElement;
+				if (fileEl) {
+					this.selectFile(fileEl);
+				}
+			}
+		}
+	}
+
 	private async openFileInDefaultApp(fileName: string) {
 		const file = this.app.vault.getAbstractFileByPath(fileName);
 		if (file instanceof TFile) {
@@ -224,43 +245,5 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 				await leaf.openFile(file);
 			}
 		}
-	}
-}
-
-class DoubleClickNonNativeSettingTab extends PluginSettingTab {
-	plugin: DoubleClickNonNativePlugin;
-
-	constructor(app: App, plugin: DoubleClickNonNativePlugin) {
-		super(app, plugin);
-		this.plugin = plugin;
-	}
-	display(): void {
-		const { containerEl } = this;
-
-		containerEl.empty();
-
-		new Setting(containerEl)
-			.setName('Double-click timeout')
-			.setDesc('Time in milliseconds to wait for a second click to register as a double-click.')
-			.addText(text => text
-				.setPlaceholder('300')
-				.setValue(this.plugin.settings.doubleClickDelay.toString())
-				.onChange(async (value) => {
-					const numValue = parseInt(value);
-					if (!isNaN(numValue) && numValue > 0) {
-						this.plugin.settings.doubleClickDelay = numValue;
-						await this.plugin.saveSettings();
-					}
-				}));
-
-		new Setting(containerEl)
-			.setName('Enable double-click for all files')
-			.setDesc('When enabled, double-clicking any file (including native Obsidian files like .md) will open it in the default application.')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.enableForAllFiles)
-				.onChange(async (value) => {
-					this.plugin.settings.enableForAllFiles = value;
-					await this.plugin.saveSettings();
-				}));
 	}
 }

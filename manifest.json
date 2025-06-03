@@ -1,9 +1,9 @@
 {
-	"id": "double-click-non-native",
-	"name": "Double Click Non-Native Files",
-	"version": "0.4.0",
+	"id": "click-unsupported-files",
+	"name": "Click Unsupported Files",
+	"version": "0.5.0",
 	"minAppVersion": "1.8.10",
-	"description": "Changes click behavior for non-native files to work similar to Windows File Explorer: single-click selects, double-click opens in default app.",
+	"description": "Changes click behavior for unsupported files to work similar to Windows File Explorer: single-click selects, double-click opens in default app.",
 	"author": "Albert O'Shea",
 	"authorUrl": "https://github.com/AMC-Albert",
 	"fundingUrl": "https://github.com/sponsors/AMC-Albert",
