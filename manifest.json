@@ -1,7 +1,7 @@
 {
 	"id": "click-unsupported-files",
 	"name": "Click Unsupported Files",
-	"version": "0.5.1",
+	"version": "0.5.2",
 	"minAppVersion": "1.8.10",
 	"description": "Changes click behavior for unsupported files to work similar to Windows File Explorer: single-click selects, double-click opens in default app.",
 	"author": "Albert O'Shea",
