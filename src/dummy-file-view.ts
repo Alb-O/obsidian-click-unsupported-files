@@ -1,5 +1,6 @@
-import { FileView, TFile, WorkspaceLeaf, Notice } from 'obsidian';
+import { FileView, TFile, WorkspaceLeaf, Notice, setIcon } from 'obsidian';
 import { VIEW_TYPE_DUMMY } from './settings';
+import { ExtendedApp } from './types';
 
 export class DummyFileView extends FileView {
 	constructor(leaf: WorkspaceLeaf) {
@@ -45,9 +46,8 @@ export class DummyFileView extends FileView {
 		
 		const calloutTitle = message.createDiv({ cls: "callout-title" });
 		calloutTitle.setAttribute("dir", "auto");
-		
 		const calloutIcon = calloutTitle.createDiv({ cls: "callout-icon" });
-		calloutIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon lucide-alert-triangle"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>`;
+		setIcon(calloutIcon, "alert-triangle");
 		
 		const calloutTitleInner = calloutTitle.createDiv({ 
 			cls: "callout-title-inner",
@@ -64,10 +64,9 @@ export class DummyFileView extends FileView {
 			text: "Open in default app",
 			cls: "mod-cta"
 		});
-		
-		openButton.addEventListener("click", () => {
+				openButton.addEventListener("click", () => {
 			try {
-				(this.app as any).openWithDefaultApp(file.path);
+				(this.app as ExtendedApp).openWithDefaultApp(file.path);
 			} catch (error) {
 				console.error('Failed to open file in default app:', error);
 			}
