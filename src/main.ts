@@ -209,7 +209,6 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 	   // DOM visual selection for non-native files
 	   titleEl.classList.add('has-focus');
    }
-
 	private async openFileInDummyView(fileName: string) {
 		const file = this.app.vault.getAbstractFileByPath(fileName);
 		if (file instanceof TFile) {
@@ -221,6 +220,12 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 					type: VIEW_TYPE_DUMMY,
 					state: { file: fileName }
 				});
+				
+				// After opening in dummy view, make sure the file has focus in the explorer
+				const fileEl = document.querySelector(`[data-path="${fileName}"]`)?.closest('.nav-file') as HTMLElement;
+				if (fileEl) {
+					this.selectFile(fileEl);
+				}
 			} catch (error) {
 				console.error('Failed to open file in dummy view:', error);
 				// Fallback to just selecting the file
