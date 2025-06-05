@@ -1,6 +1,6 @@
 {
 	"name": "click-unsupported-files",
-	"version": "0.5.2",
+	"version": "0.5.3",
 	"description": "Changes click behavior for unsupported files to work similar to Windows File Explorer: single-click selects, double-click opens in default app.",
 	"main": "main.js",
 	"scripts": {
