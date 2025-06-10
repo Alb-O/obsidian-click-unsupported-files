@@ -208,18 +208,31 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 	   }
 	   // DOM visual selection for non-native files
 	   titleEl.classList.add('has-focus');
-   }
-	private async openFileInDummyView(fileName: string) {
+   }	private async openFileInDummyView(fileName: string) {
 		const file = this.app.vault.getAbstractFileByPath(fileName);
 		if (file instanceof TFile) {
 			try {
-				// Get or create a leaf for the dummy view
-				const leaf = this.app.workspace.getLeaf(false);
-				// Open the file using our custom dummy view
-				await leaf.setViewState({
-					type: VIEW_TYPE_DUMMY,
-					state: { file: fileName }
-				});
+				// Check if the file is already open in a dummy view
+				const existingLeaf = this.app.workspace.getLeavesOfType(VIEW_TYPE_DUMMY)
+					.find(leaf => {
+						const view = leaf.view as DummyFileView;
+						return view.file?.path === fileName;
+					});
+
+				let leaf;
+				if (existingLeaf) {
+					// File is already open, reuse that leaf and activate it
+					leaf = existingLeaf;
+					this.app.workspace.setActiveLeaf(leaf);
+				} else {
+					// Get or create a leaf for the dummy view
+					leaf = this.app.workspace.getLeaf(false);
+					// Open the file using our custom dummy view
+					await leaf.setViewState({
+						type: VIEW_TYPE_DUMMY,
+						state: { file: fileName }
+					});
+				}
 				
 				// After opening in dummy view, make sure the file has focus in the explorer
 				const fileEl = document.querySelector(`[data-path="${fileName}"]`)?.closest('.nav-file') as HTMLElement;
