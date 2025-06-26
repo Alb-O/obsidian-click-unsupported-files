@@ -1,8 +1,12 @@
-import { Plugin, TFile } from 'obsidian';
-import { DoubleClickNonNativeSettings, DEFAULT_SETTINGS, VIEW_TYPE_DUMMY } from './settings';
-import { ExtendedApp } from './types';
-import { DummyFileView } from './dummy-file-view';
-import { DoubleClickNonNativeSettingTab } from './settings-tab';
+import { Plugin, TFile, WorkspaceLeaf } from "obsidian";
+import {
+	DoubleClickNonNativeSettings,
+	DEFAULT_SETTINGS,
+	VIEW_TYPE_DUMMY,
+} from "./settings";
+import { ExtendedApp } from "./types";
+import { DummyFileView } from "./dummy-file-view";
+import { DoubleClickNonNativeSettingTab } from "./settings-tab";
 
 export default class DoubleClickNonNativePlugin extends Plugin {
 	settings: DoubleClickNonNativeSettings;
@@ -17,13 +21,24 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 
 		// Get reference to file explorer view
 		this.app.workspace.onLayoutReady(() => {
-			this.fileExplorerView = this.app.workspace.getLeavesOfType('file-explorer')[0]?.view;
+			this.fileExplorerView =
+				this.app.workspace.getLeavesOfType("file-explorer")[0]?.view;
 		});
 
 		// Register click event listener on the file explorer with capture phase
-		this.registerDomEvent(document, 'click', this.handleFileClick.bind(this), true);
+		this.registerDomEvent(
+			document,
+			"click",
+			this.handleFileClick.bind(this),
+			true
+		);
 		// Register mousedown listener to clear focus styling early
-		this.registerDomEvent(document, 'mousedown', this.handleFileMouseDown.bind(this), true);
+		this.registerDomEvent(
+			document,
+			"mousedown",
+			this.handleFileMouseDown.bind(this),
+			true
+		);
 
 		// Add settings tab
 		this.addSettingTab(new DoubleClickNonNativeSettingTab(this.app, this));
@@ -31,12 +46,16 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 
 	onunload() {
 		// Clear any pending timeouts
-		this.clickTimeouts.forEach(timeout => clearTimeout(timeout));
+		this.clickTimeouts.forEach((timeout) => clearTimeout(timeout));
 		this.clickTimeouts.clear();
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		this.settings = Object.assign(
+			{},
+			DEFAULT_SETTINGS,
+			await this.loadData()
+		);
 	}
 
 	async saveSettings() {
@@ -49,17 +68,17 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 		if (evt.altKey || evt.shiftKey) return;
 
 		// Check if click is on a file in the explorer
-		const fileEl = target.closest('.nav-file');
+		const fileEl = target.closest(".nav-file");
 		if (!fileEl) return;
 
-		const titleEl = fileEl.querySelector('.nav-file-title');
+		const titleEl = fileEl.querySelector(".nav-file-title");
 		if (!titleEl) return;
-		
-		const fileName = titleEl.getAttribute('data-path');
+
+		const fileName = titleEl.getAttribute("data-path");
 		if (!fileName) return;
 
 		// Use Obsidian's built-in class to check if file is non-native (unsupported)
-		const isUnsupported = titleEl.classList.contains('is-unsupported');
+		const isUnsupported = titleEl.classList.contains("is-unsupported");
 
 		// Scenario 1: Native file (supported by Obsidian), plugin NOT overriding single click (enableForAllFiles is false)
 		if (!isUnsupported && !this.settings.enableForAllFiles) {
@@ -87,7 +106,7 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 			this.clickTimeouts.delete(fileKey);
 			// If enableForAllFiles is true, override double-click for all files
 			// Otherwise, only override for unsupported files
-			if ((this.settings.enableForAllFiles) || isUnsupported) {
+			if (this.settings.enableForAllFiles || isUnsupported) {
 				evt.preventDefault();
 				evt.stopPropagation();
 				this.openFileInDefaultApp(fileName);
@@ -109,14 +128,14 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 				// Non-native file (unsupported).
 				evt.preventDefault();
 				evt.stopPropagation();
-				
+
 				// If dummy view is enabled, open the file in a dummy view instead of just selecting
 				if (this.settings.enableDummyView) {
 					this.openFileInDummyView(fileName);
 				} else {
 					this.selectFile(fileEl as HTMLElement); // This method selects the file AND sets it as active.
 				}
-				
+
 				const timeout = setTimeout(() => {
 					this.clickTimeouts.delete(fileKey);
 					// If timeout expires, it was a single click. File is already handled above.
@@ -128,11 +147,13 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 
 	// Handle mousedown to remove lingering has-focus classes immediately
 	private handleFileMouseDown(evt: MouseEvent) {
-		const fileEl = (evt.target as HTMLElement).closest('.nav-file');
+		const fileEl = (evt.target as HTMLElement).closest(".nav-file");
 		if (!fileEl) return;
-		const explorer = document.querySelector('.nav-files-container');
+		const explorer = document.querySelector(".nav-files-container");
 		if (explorer) {
-			explorer.querySelectorAll('.nav-file-title.has-focus').forEach(el => el.classList.remove('has-focus'));
+			explorer
+				.querySelectorAll(".nav-file-title.has-focus")
+				.forEach((el) => el.classList.remove("has-focus"));
 		}
 	}
 
@@ -148,19 +169,21 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 		const preservedFocusedItem = clearActiveDom ? null : tree.focusedItem;
 
 		tree.selectedDoms.forEach((dom: any) => {
-			if (dom.el) dom.el.classList.remove('is-selected');
+			if (dom.el) dom.el.classList.remove("is-selected");
 			if (dom.selfEl) {
-				dom.selfEl.classList.remove('is-selected');
-				if (clearActiveDom) dom.selfEl.classList.remove('has-focus');
+				dom.selfEl.classList.remove("is-selected");
+				if (clearActiveDom) dom.selfEl.classList.remove("has-focus");
 			}
 		});
 		tree.selectedDoms.clear();
 
 		if (clearActiveDom) {
-			const explorer = document.querySelector('.nav-files-container');
+			const explorer = document.querySelector(".nav-files-container");
 			if (explorer) {
-				const focusedTitles = explorer.querySelectorAll('.tree-item-self.nav-file-title.has-focus, .nav-file-title.has-focus');
-				focusedTitles.forEach(el => el.classList.remove('has-focus'));
+				const focusedTitles = explorer.querySelectorAll(
+					".tree-item-self.nav-file-title.has-focus, .nav-file-title.has-focus"
+				);
+				focusedTitles.forEach((el) => el.classList.remove("has-focus"));
 			}
 		}
 
@@ -176,48 +199,57 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 	private deselectAllFiles() {
 		this.clearSelections(false); // By default, preserve activeDom
 	}
-	
+
 	private setActiveFile(fileName: string) {
-	   if (this.fileExplorerView?.fileItems && this.fileExplorerView?.tree) {
-		   const tree = this.fileExplorerView.tree;
-		   const fileItem = this.fileExplorerView.fileItems[fileName];
-		   if (fileItem) {
-			   // Set as active item so shift-click selections work properly
-			   tree.activeDom = fileItem;
-			   tree.focusedItem = fileItem;
-		   } else {
-			   // fileItem not found
-		   }
-	   } else {
-		   // fileExplorerView.fileItems or tree missing
-	   }
+		if (this.fileExplorerView?.fileItems && this.fileExplorerView?.tree) {
+			const tree = this.fileExplorerView.tree;
+			const fileItem = this.fileExplorerView.fileItems[fileName];
+			if (fileItem) {
+				// Set as active item so shift-click selections work properly
+				tree.activeDom = fileItem;
+				tree.focusedItem = fileItem;
+			} else {
+				// fileItem not found
+			}
+		} else {
+			// fileExplorerView.fileItems or tree missing
+		}
 	}
 
-   private selectFile(fileEl: HTMLElement) {
-	   const titleEl = fileEl.querySelector('.nav-file-title');
-	   if (!titleEl) return;
-	   const fileName = titleEl.getAttribute('data-path');
-	   if (!fileName) return;
-	   if (this.fileExplorerView?.fileItems && this.fileExplorerView?.tree) {
-		   const tree = this.fileExplorerView.tree;
-		   const fileItem = this.fileExplorerView.fileItems[fileName];
-		   if (fileItem) {
-			   tree.activeDom = fileItem;
-			   tree.focusedItem = fileItem;
-		   }
-	   }
-	   // DOM visual selection for non-native files
-	   titleEl.classList.add('has-focus');
-   }	private async openFileInDummyView(fileName: string) {
+	private selectFile(fileEl: HTMLElement) {
+		const titleEl = fileEl.querySelector(".nav-file-title");
+		if (!titleEl) return;
+		const fileName = titleEl.getAttribute("data-path");
+		if (!fileName) return;
+		if (this.fileExplorerView?.fileItems && this.fileExplorerView?.tree) {
+			const tree = this.fileExplorerView.tree;
+			const fileItem = this.fileExplorerView.fileItems[fileName];
+			if (fileItem) {
+				tree.activeDom = fileItem;
+				tree.focusedItem = fileItem;
+			}
+		}
+		// DOM visual selection for non-native files
+		titleEl.classList.add("has-focus");
+	}
+	private async openFileInDummyView(fileName: string) {
 		const file = this.app.vault.getAbstractFileByPath(fileName);
 		if (file instanceof TFile) {
 			try {
 				// Check if the file is already open in a dummy view
-				const existingLeaf = this.app.workspace.getLeavesOfType(VIEW_TYPE_DUMMY)
-					.find(leaf => {
-						const view = leaf.view as DummyFileView;
-						return view.file?.path === fileName;
-					});
+				const leaves =
+					this.app.workspace.getLeavesOfType(VIEW_TYPE_DUMMY);
+				let existingLeaf: WorkspaceLeaf | undefined;
+				for (const leaf of leaves) {
+					await this.app.workspace.revealLeaf(leaf);
+					if (
+						leaf.view instanceof DummyFileView &&
+						leaf.view.file?.path === fileName
+					) {
+						existingLeaf = leaf;
+						break;
+					}
+				}
 
 				let leaf;
 				if (existingLeaf) {
@@ -230,19 +262,23 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 					// Open the file using our custom dummy view
 					await leaf.setViewState({
 						type: VIEW_TYPE_DUMMY,
-						state: { file: fileName }
+						state: { file: fileName },
 					});
 				}
-				
+
 				// After opening in dummy view, make sure the file has focus in the explorer
-				const fileEl = document.querySelector(`[data-path="${fileName}"]`)?.closest('.nav-file') as HTMLElement;
+				const fileEl = document
+					.querySelector(`[data-path="${fileName}"]`)
+					?.closest(".nav-file") as HTMLElement;
 				if (fileEl) {
 					this.selectFile(fileEl);
 				}
 			} catch (error) {
-				console.error('Failed to open file in dummy view:', error);
+				console.error("Failed to open file in dummy view:", error);
 				// Fallback to just selecting the file
-				const fileEl = document.querySelector(`[data-path="${fileName}"]`)?.closest('.nav-file') as HTMLElement;
+				const fileEl = document
+					.querySelector(`[data-path="${fileName}"]`)
+					?.closest(".nav-file") as HTMLElement;
 				if (fileEl) {
 					this.selectFile(fileEl);
 				}
@@ -257,7 +293,7 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 				// Use Obsidian's internal method to open with default app
 				(this.app as ExtendedApp).openWithDefaultApp(file.path);
 			} catch (error) {
-				console.error('Failed to open file in default app:', error);
+				console.error("Failed to open file in default app:", error);
 				// Fallback to opening in Obsidian
 				const leaf = this.app.workspace.getLeaf(false);
 				await leaf.openFile(file);
