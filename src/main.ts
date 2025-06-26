@@ -10,7 +10,7 @@ import { DoubleClickNonNativeSettingTab } from "./settings-tab";
 
 export default class DoubleClickNonNativePlugin extends Plugin {
 	settings: DoubleClickNonNativeSettings;
-	private clickTimeouts: Map<string, NodeJS.Timeout> = new Map();
+	private clickTimeouts: Map<string, number> = new Map();
 	private fileExplorerView: any = null;
 
 	async onload() {
@@ -119,7 +119,7 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 				// We do not preventDefault or stopPropagation here.
 				// We set up a timeout to detect a potential double-click.
 				this.setActiveFile(fileName); // Make sure this file is the active one for subsequent shift-clicks.
-				const timeout = setTimeout(() => {
+				const timeout = window.setTimeout(() => {
 					this.clickTimeouts.delete(fileKey);
 					// If timeout expires, it was a single click. Obsidian has handled it.
 				}, this.settings.doubleClickDelay);
@@ -136,7 +136,7 @@ export default class DoubleClickNonNativePlugin extends Plugin {
 					this.selectFile(fileEl as HTMLElement); // This method selects the file AND sets it as active.
 				}
 
-				const timeout = setTimeout(() => {
+				const timeout = window.setTimeout(() => {
 					this.clickTimeouts.delete(fileKey);
 					// If timeout expires, it was a single click. File is already handled above.
 				}, this.settings.doubleClickDelay);
